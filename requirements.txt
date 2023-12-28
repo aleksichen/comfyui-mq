@@ -13,3 +13,5 @@ psutil
 pika==1.3.2
 pydantic
 loguru
+qiniu==7.13.0
+

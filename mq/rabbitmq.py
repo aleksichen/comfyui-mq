@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 
 import aio_pika
@@ -97,8 +98,7 @@ class MyRabbitMQ:
                 # 6. 构建消息体
                 message = await func(*args, **kwargs)
                 # 7. 发送消息
-                logger.info(
-                    f"publish message: {message} for mq_message_config: {mq_message_config.dict()}")
+                logger.info(f"发送消息: {mq_message_config.dict()}")
                 await exchange.publish(message, routing_key=mq_message_config.routing_key)
                 # 8. 关闭连接
                 await connection.close()
@@ -106,7 +106,37 @@ class MyRabbitMQ:
             async def call(*args, **kwargs):
                 await wrapper(*args, **kwargs)
 
+            import asyncio
+            import threading
+
+            def call_sync(*args, **kwargs):
+                # 检查是否在主线程中
+                if threading.current_thread() is threading.main_thread():
+                    # 主线程
+                    if asyncio.get_event_loop().is_running():
+                        # 如果事件循环已经运行，创建一个新的事件循环
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            new_loop.run_until_complete(wrapper(*args, **kwargs))
+                        finally:
+                            new_loop.close()
+                            asyncio.set_event_loop(None)
+                    else:
+                        # 如果没有运行的事件循环，直接运行
+                        asyncio.run(wrapper(*args, **kwargs))
+                else:
+                    # 子线程
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(wrapper(*args, **kwargs))
+                    finally:
+                        loop.close()
+                        asyncio.set_event_loop(None)
+
             wrapper.call = call
+            wrapper.call_sync = call_sync
             return wrapper
 
         return decorator

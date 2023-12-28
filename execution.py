@@ -42,6 +42,8 @@ def get_input_data(inputs, class_def, unique_id, prompt_id=None, outputs={}, pro
                 input_data_all[x] = [unique_id]
             if h[x] == "PROMPT_ID" and prompt_id is not None:
                 input_data_all[x] = [prompt_id]
+            if h[x] == "CLIENT_ID" and "client_id" in extra_data:
+                input_data_all[x] = [extra_data['client_id']]
     return input_data_all
 
 def map_node_over_list(obj, input_data_all, func, allow_interrupt=False):

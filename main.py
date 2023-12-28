@@ -1,4 +1,6 @@
 import comfy.options
+from mq.consumer import rabbitmq
+
 comfy.options.enable_args_parsing()
 
 import os
@@ -124,12 +126,21 @@ def prompt_worker(q, server):
                 last_gc_collect = current_time
                 need_gc = False
 
-async def run(server, address='', port=8188, verbose=True, call_on_start=None):
-    await asyncio.gather(server.start(address, port, verbose, call_on_start), server.publish_loop())
 
+async def run(server, address='', port=8188, verbose=True, call_on_start=None, context: dict = None):
+    await asyncio.gather(
+        server.start(address, port, verbose, call_on_start),
+        server.publish_loop(),
+        init_mq(context)
+    )
+
+async def init_mq(context):
+    await rabbitmq.connect()
+    await rabbitmq.consuming_all(context)
 
 def hijack_progress(server):
     def hook(value, total, preview_image):
+        print(value, total, preview_image)
         comfy.model_management.throw_exception_if_processing_interrupted()
         server.send_sync("progress", {"value": value, "max": total}, server.client_id)
         if preview_image is not None:
@@ -221,7 +232,11 @@ if __name__ == "__main__":
         call_on_start = startup_server
 
     try:
-        loop.run_until_complete(run(server, address=args.listen, port=args.port, verbose=not args.dont_print_server, call_on_start=call_on_start))
+        context = {
+            "q": q,
+            "server": server
+        }
+        loop.run_until_complete(run(server, address=args.listen, port=args.port, verbose=not args.dont_print_server, call_on_start=call_on_start, context=context))
     except KeyboardInterrupt:
         print("\nStopped server")
 

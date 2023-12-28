@@ -10,3 +10,6 @@ Pillow
 scipy
 tqdm
 psutil
+pika==1.3.2
+pydantic
+loguru

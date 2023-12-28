@@ -13,7 +13,7 @@ import nodes
 
 import comfy.model_management
 
-def get_input_data(inputs, class_def, unique_id, outputs={}, prompt={}, extra_data={}):
+def get_input_data(inputs, class_def, unique_id, prompt_id=None, outputs={}, prompt={}, extra_data={}):
     valid_inputs = class_def.INPUT_TYPES()
     input_data_all = {}
     for x in inputs:
@@ -40,6 +40,8 @@ def get_input_data(inputs, class_def, unique_id, outputs={}, prompt={}, extra_da
                     input_data_all[x] = [extra_data['extra_pnginfo']]
             if h[x] == "UNIQUE_ID":
                 input_data_all[x] = [unique_id]
+            if h[x] == "PROMPT_ID" and prompt_id is not None:
+                input_data_all[x] = [prompt_id]
     return input_data_all
 
 def map_node_over_list(obj, input_data_all, func, allow_interrupt=False):
@@ -140,7 +142,8 @@ def recursive_execute(server, prompt, outputs, current_item, extra_data, execute
 
     input_data_all = None
     try:
-        input_data_all = get_input_data(inputs, class_def, unique_id, outputs, prompt, extra_data)
+        # TODO
+        input_data_all = get_input_data(inputs, class_def, unique_id, prompt_id, outputs, prompt, extra_data)
         if server.client_id is not None:
             server.last_node_id = unique_id
             server.send_sync("executing", { "node": unique_id, "prompt_id": prompt_id }, server.client_id)
@@ -225,7 +228,7 @@ def recursive_output_delete_if_changed(prompt, old_prompt, outputs, current_item
         if unique_id in old_prompt and 'is_changed' in old_prompt[unique_id]:
             is_changed_old = old_prompt[unique_id]['is_changed']
         if 'is_changed' not in prompt[unique_id]:
-            input_data_all = get_input_data(inputs, class_def, unique_id, outputs)
+            input_data_all = get_input_data(inputs, class_def, unique_id, prompt_id, outputs)
             if input_data_all is not None:
                 try:
                     #is_changed = class_def.IS_CHANGED(**input_data_all)
@@ -780,3 +783,4 @@ class PromptQueue:
     def delete_history_item(self, id_to_delete):
         with self.mutex:
             self.history.pop(id_to_delete, None)
+

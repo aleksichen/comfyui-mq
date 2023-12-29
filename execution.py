@@ -323,6 +323,8 @@ class PromptExecutor:
     def execute(self, prompt, prompt_id, extra_data={}, execute_outputs=[]):
         nodes.interrupt_processing(False)
 
+        self.server.prompt_id = prompt_id
+
         if "client_id" in extra_data:
             self.server.client_id = extra_data["client_id"]
         else:

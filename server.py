@@ -3,6 +3,8 @@ import sys
 import asyncio
 import traceback
 
+from loguru import logger
+
 import nodes
 import folder_paths
 import execution
@@ -14,6 +16,8 @@ import struct
 from PIL import Image, ImageOps
 from PIL.PngImagePlugin import PngInfo
 from io import BytesIO
+
+from mq.publisher import send_paint_progress, send_paint_start_event, send_paint_result
 
 try:
     import aiohttp
@@ -91,6 +95,7 @@ class PromptServer():
         self.routes = routes
         self.last_node_id = None
         self.client_id = None
+        self.prompt_id = None
 
         self.on_prompt_handlers = []
 
@@ -608,6 +613,19 @@ class PromptServer():
     async def publish_loop(self):
         while True:
             msg = await self.messages.get()
+            (event, data, sid) = msg
+            if event == "progress":
+                # 转换为百分比并保留两位小数
+                ratio = data.get("value") / data.get("max")
+                percentage = "{:.2f}".format(ratio * 100)
+                await send_paint_progress.call(self.client_id, self.prompt_id, percentage)
+            if event == "execution_start":
+                await send_paint_start_event.call(self.client_id, self.prompt_id)
+                pass
+            if event == "executed":
+                imgs = data.get("output").get("oss_urls")
+                await send_paint_result.call(self.client_id, self.prompt_id, imgs)
+
             await self.send(*msg)
 
     async def start(self, address, port, verbose=True, call_on_start=None):

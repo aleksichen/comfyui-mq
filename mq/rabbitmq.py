@@ -1,5 +1,5 @@
 import asyncio
-from dataclasses import dataclass
+import threading
 
 import aio_pika
 from typing import List, Tuple, Callable
@@ -106,8 +106,6 @@ class MyRabbitMQ:
             async def call(*args, **kwargs):
                 await wrapper(*args, **kwargs)
 
-            import asyncio
-            import threading
 
             def call_sync(*args, **kwargs):
                 # 检查是否在主线程中

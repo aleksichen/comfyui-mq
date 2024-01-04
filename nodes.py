@@ -1491,12 +1491,9 @@ class LoadImageMask:
         return m.digest().hex()
 
     @classmethod
-    def VALIDATE_INPUTS(s, image, channel):
+    def VALIDATE_INPUTS(s, image):
         if not folder_paths.exists_annotated_filepath(image):
             return "Invalid image file: {}".format(image)
-
-        if channel not in s._color_channels:
-            return "Invalid color channel: {}".format(channel)
 
         return True
 
@@ -1883,6 +1880,7 @@ def init_custom_nodes():
         "nodes_sag.py",
         "nodes_perpneg.py",
         "nodes_stable3d.py",
+        "nodes_sdupscale.py",
     ]
 
     for node_file in extras_files:

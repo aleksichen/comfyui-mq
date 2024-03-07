@@ -218,7 +218,7 @@ def recursive_will_execute(prompt, outputs, current_item):
 
     return will_execute + [unique_id]
 
-def recursive_output_delete_if_changed(prompt, old_prompt, outputs, current_item):
+def recursive_output_delete_if_changed(prompt, prompt_id, old_prompt, outputs, current_item):
     unique_id = current_item
     inputs = prompt[unique_id]['inputs']
     class_type = prompt[unique_id]['class_type']
@@ -227,6 +227,7 @@ def recursive_output_delete_if_changed(prompt, old_prompt, outputs, current_item
     is_changed_old = ''
     is_changed = ''
     to_delete = False
+
     if hasattr(class_def, 'IS_CHANGED'):
         if unique_id in old_prompt and 'is_changed' in old_prompt[unique_id]:
             is_changed_old = old_prompt[unique_id]['is_changed']
@@ -258,7 +259,7 @@ def recursive_output_delete_if_changed(prompt, old_prompt, outputs, current_item
                     input_unique_id = input_data[0]
                     output_index = input_data[1]
                     if input_unique_id in outputs:
-                        to_delete = recursive_output_delete_if_changed(prompt, old_prompt, outputs, input_unique_id)
+                        to_delete = recursive_output_delete_if_changed(prompt, prompt_id, old_prompt, outputs, input_unique_id)
                     else:
                         to_delete = True
                     if to_delete:
@@ -356,7 +357,7 @@ class PromptExecutor:
                 del d
 
             for x in prompt:
-                recursive_output_delete_if_changed(prompt, self.old_prompt, self.outputs, x)
+                recursive_output_delete_if_changed(prompt, self.server.prompt_id, self.old_prompt, self.outputs, x)
 
             current_outputs = set(self.outputs.keys())
             for x in list(self.outputs_ui.keys()):

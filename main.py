@@ -240,7 +240,8 @@ if __name__ == "__main__":
             "q": q,
             "server": server
         }
-        loop.run_until_complete(run(server, address=args.listen, port=args.port, verbose=not args.dont_print_server, call_on_start=call_on_start, context=context))
+
+        loop.run_until_complete(run(server, address='0.0.0.0', port=args.port, verbose=not args.dont_print_server, call_on_start=call_on_start, context=context))
     except KeyboardInterrupt:
         print("\nStopped server")
 

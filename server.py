@@ -3,8 +3,6 @@ import sys
 import asyncio
 import traceback
 
-from loguru import logger
-
 import nodes
 import folder_paths
 import execution
@@ -16,18 +14,11 @@ import struct
 from PIL import Image, ImageOps
 from PIL.PngImagePlugin import PngInfo
 from io import BytesIO
-
 from mq.publisher import send_paint_progress, send_paint_start_event, send_paint_result
 
-try:
-    import aiohttp
-    from aiohttp import web
-except ImportError:
-    print("Module 'aiohttp' not installed. Please install it via:")
-    print("pip install aiohttp")
-    print("or")
-    print("pip install -r requirements.txt")
-    sys.exit()
+import aiohttp
+from aiohttp import web
+import logging
 
 import mimetypes
 from comfy.cli_args import args
@@ -36,15 +27,18 @@ import comfy.model_management
 
 from app.user_manager import UserManager
 
+
 class BinaryEventTypes:
     PREVIEW_IMAGE = 1
     UNENCODED_PREVIEW_IMAGE = 2
+
 
 async def send_socket_catch_exception(function, message):
     try:
         await function(message)
     except (aiohttp.ClientError, aiohttp.ClientPayloadError, ConnectionResetError) as err:
-        print("send error:", err)
+        logging.warning("send error: {}".format(err))
+
 
 @web.middleware
 async def cache_control(request: web.Request, handler):
@@ -52,6 +46,7 @@ async def cache_control(request: web.Request, handler):
     if request.path.endswith('.js') or request.path.endswith('.css'):
         response.headers.setdefault('Cache-Control', 'no-cache')
     return response
+
 
 def create_cors_middleware(allowed_origin: str):
     @web.middleware
@@ -69,6 +64,7 @@ def create_cors_middleware(allowed_origin: str):
         return response
 
     return cors_middleware
+
 
 class PromptServer():
     def __init__(self, loop):
@@ -116,14 +112,14 @@ class PromptServer():
 
             try:
                 # Send initial state to the new client
-                await self.send("status", { "status": self.get_queue_info(), 'sid': sid }, sid)
+                await self.send("status", {"status": self.get_queue_info(), 'sid': sid}, sid)
                 # On reconnect if we are the currently executing client send the current node
                 if self.client_id == sid and self.last_node_id is not None:
-                    await self.send("executing", { "node": self.last_node_id }, sid)
-                    
+                    await self.send("executing", {"node": self.last_node_id}, sid)
+
                 async for msg in ws:
                     if msg.type == aiohttp.WSMsgType.ERROR:
-                        print('ws connection closed with exception %s' % ws.exception())
+                        logging.warning('ws connection closed with exception %s' % ws.exception())
             finally:
                 self.sockets.pop(sid, None)
             return ws
@@ -141,9 +137,9 @@ class PromptServer():
         async def get_extensions(request):
             files = glob.glob(os.path.join(
                 glob.escape(self.web_root), 'extensions/**/*.js'), recursive=True)
-            
+
             extensions = list(map(lambda f: "/" + os.path.relpath(f, self.web_root).replace("\\", "/"), files))
-            
+
             for name, dir in nodes.EXTENSION_WEB_DIRS.items():
                 files = glob.glob(os.path.join(glob.escape(dir), '**/*.js'), recursive=True)
                 extensions.extend(list(map(lambda f: "/extensions/" + urllib.parse.quote(
@@ -203,7 +199,7 @@ class PromptServer():
                     with open(filepath, "wb") as f:
                         f.write(image.file.read())
 
-                return web.json_response({"name" : filename, "subfolder": subfolder, "type": image_upload_type})
+                return web.json_response({"name": filename, "subfolder": subfolder, "type": image_upload_type})
             else:
                 return web.Response(status=400)
 
@@ -211,7 +207,6 @@ class PromptServer():
         async def upload_image(request):
             post = await request.post()
             return image_upload(post)
-
 
         @routes.post("/upload/mask")
         async def upload_mask(request):
@@ -243,7 +238,7 @@ class PromptServer():
                 if os.path.isfile(file):
                     with Image.open(file) as original_pil:
                         metadata = PngInfo()
-                        if hasattr(original_pil,'text'):
+                        if hasattr(original_pil, 'text'):
                             for key in original_pil.text:
                                 metadata.add_text(key, original_pil.text[key])
                         original_pil = original_pil.convert('RGBA')
@@ -260,7 +255,7 @@ class PromptServer():
         async def view_image(request):
             if "filename" in request.rel_url.query:
                 filename = request.rel_url.query["filename"]
-                filename,output_dir = folder_paths.annotated_filepath(filename)
+                filename, output_dir = folder_paths.annotated_filepath(filename)
 
                 # validation for security: prevent accessing arbitrary path
                 if filename[0] == '/' or '..' in filename:
@@ -359,7 +354,7 @@ class PromptServer():
             safetensors_path = folder_paths.get_full_path(folder_name, filename)
             if safetensors_path is None:
                 return web.Response(status=404)
-            out = comfy.utils.safetensors_header(safetensors_path, max_size=1024*1024)
+            out = comfy.utils.safetensors_header(safetensors_path, max_size=1024 * 1024)
             if out is None:
                 return web.Response(status=404)
             dt = json.loads(out)
@@ -402,11 +397,14 @@ class PromptServer():
             info = {}
             info['input'] = obj_class.INPUT_TYPES()
             info['output'] = obj_class.RETURN_TYPES
-            info['output_is_list'] = obj_class.OUTPUT_IS_LIST if hasattr(obj_class, 'OUTPUT_IS_LIST') else [False] * len(obj_class.RETURN_TYPES)
+            info['output_is_list'] = obj_class.OUTPUT_IS_LIST if hasattr(obj_class, 'OUTPUT_IS_LIST') else [
+                                                                                                               False] * len(
+                obj_class.RETURN_TYPES)
             info['output_name'] = obj_class.RETURN_NAMES if hasattr(obj_class, 'RETURN_NAMES') else info['output']
             info['name'] = node_class
-            info['display_name'] = nodes.NODE_DISPLAY_NAME_MAPPINGS[node_class] if node_class in nodes.NODE_DISPLAY_NAME_MAPPINGS.keys() else node_class
-            info['description'] = obj_class.DESCRIPTION if hasattr(obj_class,'DESCRIPTION') else ''
+            info['display_name'] = nodes.NODE_DISPLAY_NAME_MAPPINGS[
+                node_class] if node_class in nodes.NODE_DISPLAY_NAME_MAPPINGS.keys() else node_class
+            info['description'] = obj_class.DESCRIPTION if hasattr(obj_class, 'DESCRIPTION') else ''
             info['category'] = 'sd'
             if hasattr(obj_class, 'OUTPUT_NODE') and obj_class.OUTPUT_NODE == True:
                 info['output_node'] = True
@@ -424,8 +422,8 @@ class PromptServer():
                 try:
                     out[x] = node_info(x)
                 except Exception as e:
-                    print(f"[ERROR] An error occurred while retrieving information for the '{x}' node.", file=sys.stderr)
-                    traceback.print_exc()
+                    logging.error(f"[ERROR] An error occurred while retrieving information for the '{x}' node.")
+                    logging.error(traceback.format_exc())
             return web.json_response(out)
 
         @routes.get("/object_info/{node_class}")
@@ -458,10 +456,10 @@ class PromptServer():
 
         @routes.post("/prompt")
         async def post_prompt(request):
-            print("got prompt")
+            logging.info("got prompt")
             resp_code = 200
             out_string = ""
-            json_data =  await request.json()
+            json_data = await request.json()
             json_data = self.trigger_on_prompt(json_data)
 
             if "number" in json_data:
@@ -490,14 +488,14 @@ class PromptServer():
                     response = {"prompt_id": prompt_id, "number": number, "node_errors": valid[3]}
                     return web.json_response(response)
                 else:
-                    print("invalid prompt:", valid[1])
+                    logging.warning("invalid prompt: {}".format(valid[1]))
                     return web.json_response({"error": valid[1], "node_errors": valid[3]}, status=400)
             else:
                 return web.json_response({"error": "no prompt", "node_errors": []}, status=400)
 
         @routes.post("/queue")
         async def post_queue(request):
-            json_data =  await request.json()
+            json_data = await request.json()
             if "clear" in json_data:
                 if json_data["clear"]:
                     self.prompt_queue.wipe_queue()
@@ -527,7 +525,7 @@ class PromptServer():
 
         @routes.post("/history")
         async def post_history(request):
-            json_data =  await request.json()
+            json_data = await request.json()
             if "clear" in json_data:
                 if json_data["clear"]:
                     self.prompt_queue.wipe_history()
@@ -537,7 +535,7 @@ class PromptServer():
                     self.prompt_queue.delete_history_item(id_to_delete)
 
             return web.Response(status=200)
-        
+
     def add_routes(self):
         self.user_manager.add_routes(self.routes)
         self.app.add_routes(self.routes)
@@ -624,7 +622,7 @@ class PromptServer():
             self.messages.put_nowait, (event, data, sid))
 
     def queue_updated(self):
-        self.send_sync("status", { "status": self.get_queue_info() })
+        self.send_sync("status", {"status": self.get_queue_info()})
 
     async def publish_loop(self):
         while True:
@@ -651,8 +649,8 @@ class PromptServer():
         await site.start()
 
         if verbose:
-            print("Starting server\n")
-            print("To see the GUI go to: http://{}:{}".format(address, port))
+            logging.info("Starting server\n")
+            logging.info("To see the GUI go to: http://{}:{}".format(address, port))
         if call_on_start is not None:
             call_on_start(address, port)
 
@@ -664,7 +662,7 @@ class PromptServer():
             try:
                 json_data = handler(json_data)
             except Exception as e:
-                print(f"[ERROR] An error occurred during the on_prompt_handler processing")
-                traceback.print_exc()
+                logging.warning(f"[ERROR] An error occurred during the on_prompt_handler processing")
+                logging.warning(traceback.format_exc())
 
         return json_data

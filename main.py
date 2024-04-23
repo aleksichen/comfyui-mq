@@ -161,7 +161,6 @@ async def init_mq(context):
 
 def hijack_progress(server):
     def hook(value, total, preview_image):
-        print(value, total, preview_image)
         comfy.model_management.throw_exception_if_processing_interrupted()
         progress = {"value": value, "max": total, "prompt_id": server.last_prompt_id, "node": server.last_node_id}
 

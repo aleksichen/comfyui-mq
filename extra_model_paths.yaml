@@ -24,7 +24,7 @@
 #your base path should be either an existing comfy install or a central folder where you store all of your models, loras, etc.
 
 comfyui:
-    base_path: /mnt/d/models/comfyui/models
+    base_path: /home/aleksichen/models/comfyui/models
     checkpoints: checkpoints
     clip: clip
     clip_vision: clip_vision
@@ -35,6 +35,7 @@ comfyui:
     upscale_models: upscale_models
     vae: vae
     ipadapter: ipadapter
+    inpaint: inpaint
 
 #other_ui:
 #    base_path: path/to/ui

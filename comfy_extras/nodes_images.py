@@ -9,7 +9,9 @@ import numpy as np
 import json
 import os
 
+
 MAX_RESOLUTION = nodes.MAX_RESOLUTION
+
 
 class ImageCrop:
     @classmethod

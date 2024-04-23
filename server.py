@@ -460,6 +460,7 @@ class PromptServer():
             resp_code = 200
             out_string = ""
             json_data = await request.json()
+            logging.info(json_data)
             json_data = self.trigger_on_prompt(json_data)
 
             if "number" in json_data:
@@ -628,11 +629,11 @@ class PromptServer():
         while True:
             msg = await self.messages.get()
             (event, data, sid) = msg
-            if event == "progress":
-                # 转换为百分比并保留两位小数
-                ratio = data.get("value") / data.get("max")
-                percentage = "{:.2f}".format(ratio * 100)
-                await send_paint_progress.call(self.client_id, self.prompt_id, percentage)
+            # if event == "progress":
+            #     # 转换为百分比并保留两位小数
+            #     ratio = data.get("value") / data.get("max")
+            #     percentage = "{:.2f}".format(ratio * 100)
+            #     await send_paint_progress.call(self.client_id, self.prompt_id, percentage)
             if event == "execution_start":
                 await send_paint_start_event.call(self.client_id, self.prompt_id)
                 pass

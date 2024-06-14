@@ -7,7 +7,7 @@ from typing import List, Tuple, Callable
 from loguru import logger
 from pydantic import BaseModel
 
-from config.config import settings
+from configs.mq import settings
 
 
 class MqMessageConfig(BaseModel):
